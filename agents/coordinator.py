@@ -1,72 +1,31 @@
-from gigachat import GigaChat
-from pydantic import BaseModel
-from dotenv import load_dotenv
-import os
-import json
+# agents/coordinator.py
+from pydantic import BaseModel, Field
+from langchain.prompts import ChatPromptTemplate
 
-# ===============================
-#  Модель данных для маршрутизации
-# ===============================
+
 class RouteResult(BaseModel):
-    agent: str
-    context: str
-    metadata: dict
+    """Результат маршрутизации между агентами"""
+    agent: str = Field(..., description="Имя агента, который должен обработать сообщение: ASSESSOR, PLANNER, INTERVIEWER")
+    context: str = Field(..., description="Пояснение, почему выбран именно этот агент")
 
-# ===============================
-#  Класс координатора
-# ===============================
+
 class CoordinatorAgent:
-    def __init__(self):
-        load_dotenv()
-        self.client_secret = os.getenv("GIGACHAT_CLIENT_SECRET")
-        if not self.client_secret:
-            raise ValueError("❌ Не найден GIGACHAT_CLIENT_SECRET в .env")
+    """Определяет, какому агенту передать сообщение пользователя"""
 
-        # Инициализация клиента GigaChat
-        self.llm = GigaChat(credentials=self.client_secret, verify_ssl_certs=False)
-
-        # Промпт для выбора агента
-        self.prompt = """
-        Ты — координатор (Coordinator).
-        Твоя задача — определить, какой агент должен обработать пользовательский запрос.
-        Верни результат строго в формате JSON:
-        {{
-          "agent": "INTERVIEWER" | "ASSESSOR" | "REVIEWER" | "PLANNER",
-          "context": "короткое описание контекста",
-          "metadata": {{"topic": "Python", "persona": "timlead"}}
-        }}
-
-        Входной текст пользователя:
-        {user_text}
-        """
+    def __init__(self, llm):
+        self.chain = (
+            ChatPromptTemplate.from_messages([
+                ("system",
+                 "Ты — Coordinator AI. "
+                 "Определи, какой агент должен обработать сообщение пользователя. "
+                 "Доступные варианты: ASSESSOR, PLANNER, INTERVIEWER. "
+                 "Ответ верни строго в JSON формате: "
+                 "{{\"agent\": \"...\", \"context\": \"...\"}}"),
+                ("human", "{user_text}")
+            ])
+            | llm.with_structured_output(RouteResult)
+        )
 
     def route(self, user_text: str) -> RouteResult:
-        """Отправляем запрос в GigaChat и парсим JSON-ответ"""
-        # Отправляем промпт напрямую без model и messages
-        response = self.llm.chat(self.prompt.format(user_text=user_text))
-
-        try:
-            text = response.choices[0].message.content.strip()
-
-            # 🧹 Очистим Markdown-блоки, которые GigaChat часто добавляет
-            if text.startswith("```"):
-                text = text.strip("`")
-                if "json" in text[:10].lower():
-                    text = text[text.find("{"):]
-
-            # иногда модель добавляет мусор после JSON
-            json_start = text.find("{")
-            json_end = text.rfind("}") + 1
-            text = text[json_start:json_end]
-
-            data = json.loads(text)
-            return RouteResult(**data)
-
-        except Exception as e:
-            print("Ошибка парсинга ответа:", e)
-            print("Ответ модели:", response)
-            return RouteResult(
-                agent="INTERVIEWER",
-                context="ошибка парсинга",
-                metadata={"error": str(e)},
-            )
+        """Возвращает структуру RouteResult"""
+        return self.chain.invoke({"user_text": user_text})

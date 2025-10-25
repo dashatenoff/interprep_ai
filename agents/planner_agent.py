@@ -1,45 +1,34 @@
 # agents/planner_agent.py
-from gigachat import GigaChat
-from dotenv import load_dotenv
-from pydantic import BaseModel
-import os, json
+from pydantic import BaseModel, Field
+from langchain.prompts import ChatPromptTemplate
 
-load_dotenv()
-
-class PlanResult(BaseModel):
-    plan: list
-    summary: str
+class PlanWeek(BaseModel):
+    """Неделя плана"""
+    week: int = Field(..., description="Номер недели обучения")
+    goals: list[str] = Field(..., description="Цели недели")
+    tasks: list[str] = Field(..., description="Задачи недели")
 
 class PlannerAgent:
-    def __init__(self):
-        self.llm = GigaChat(credentials=os.getenv("GIGACHAT_CLIENT_SECRET"), verify_ssl_certs=False)
+    """Агент, который создаёт учебный план"""
+    def __init__(self, llm):
+        planner_prompt = ChatPromptTemplate.from_messages([
+            ("system",
+             "Ты — AI-планировщик. Составь 4-недельный учебный план "
+             "для подготовки к стажировке по направлению {track}, "
+             "исходя из уровня {level}. Верни список в JSON: [{week, goals, tasks}]"),
+            ("human", "{user_text}")
+        ])
+        self.chain = planner_prompt | llm.with_structured_output(list[PlanWeek])
 
-        self.prompt_template = """
-        Ты — AI-планировщик. 
-        Пользователь описал свои знания: "{user_text}".
-        Составь программу обучения на 4 недели, чтобы улучшить навыки по Python и алгоритмам.
-        Верни результат строго в JSON:
-        {{
-          "plan": [
-            {{"week": 1, "goals": ["..."], "tasks": ["..."]}},
-            {{"week": 2, "goals": ["..."], "tasks": ["..."]}},
-            {{"week": 3, "goals": ["..."], "tasks": ["..."]}},
-            {{"week": 4, "goals": ["..."], "tasks": ["..."]}}
-          ],
-          "summary": "Краткое объяснение логики плана."
-        }}
-        """
-
-    def make_plan(self, user_text: str) -> PlanResult:
-        prompt = self.prompt_template.format(user_text=user_text)
-        response = self.llm.chat(prompt)
+    def make_plan(self, user_text: str, level: str = "junior", track: str = "backend"):
+        """Создаёт учебный план"""
         try:
-            text = response.choices[0].message.content
-            json_start = text.find("{")
-            json_end = text.rfind("}") + 1
-            data = json.loads(text[json_start:json_end])
-            return PlanResult(**data)
+            result = self.chain.invoke({
+                "user_text": user_text,
+                "level": level,
+                "track": track
+            })
+            return result
         except Exception as e:
-            print("Ошибка парсинга плана:", e)
-            print("Ответ модели:", response)
-            return PlanResult(plan=[], summary="Ошибка парсинга или неполный ответ модели.")
+            print("Ошибка в PlannerAgent:", e)
+            return []
