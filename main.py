@@ -10,7 +10,16 @@ from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
 from dotenv import load_dotenv
 
+import os
+from pathlib import Path
 
+# Создаем папки при запуске (важно для Railway)
+Path("data").mkdir(exist_ok=True)
+Path("knowledge").mkdir(exist_ok=True)
+Path("chroma_db").mkdir(exist_ok=True)
+
+print(f"📁 Current directory: {os.getcwd()}")
+print(f"📁 Contents: {os.listdir('.')}")
 # Добавляем путь для импорта модулей
 sys.path.append(str(Path(__file__).resolve().parent))
 
