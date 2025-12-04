@@ -6,9 +6,9 @@ sqlalchemy==2.0.29
 # pydantic==1.10.13
 
 # ===== ЭТАП 2: ДОБАВИТЬ ПОСЛЕ УСПЕШНОГО ДЕПЛОЯ =====
-# langchain==0.1.0
-# langchain-community==0.0.10
-# pypdf==3.17.4
+langchain==0.1.0
+langchain-community==0.0.10
+pypdf==3.17.4
 
 # ===== ЭТАП 3: ТЯЖЕЛЫЕ AI ЗАВИСИМОСТИ =====
 # chromadb==0.4.22
