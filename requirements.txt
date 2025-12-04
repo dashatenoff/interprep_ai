@@ -11,5 +11,5 @@ langchain-community==0.0.10
 pypdf==3.17.4
 
 # ===== ЭТАП 3: ТЯЖЕЛЫЕ AI ЗАВИСИМОСТИ =====
-# chromadb==0.4.22
-# sentence-transformers==2.2.2
+chromadb==0.4.22
+sentence-transformers==2.2.2
