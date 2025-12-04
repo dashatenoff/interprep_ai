@@ -1,0 +1,64 @@
+{
+  "examples": [
+    {
+      "id": "code1",
+      "language": "Python",
+      "category": "Best Practices",
+      "title": "Правильная обработка ошибок",
+      "good_code": "try:\n    with open('file.txt', 'r') as f:\n        data = f.read()\nexcept FileNotFoundError:\n    print('Файл не найден')\nexcept PermissionError:\n    print('Нет прав доступа')\nexcept Exception as e:\n    print(f'Ошибка: {e}')",
+      "bad_code": "f = open('file.txt', 'r')\ndata = f.read()\nf.close()",
+      "explanation": "Всегда используйте try-except для обработки ошибок. Используйте менеджер контекста (with) для автоматического закрытия файлов.",
+      "level": "junior"
+    },
+    {
+      "id": "code2",
+      "language": "Python",
+      "category": "Оптимизация",
+      "title": "List comprehension вместо цикла",
+      "good_code": "squares = [x**2 for x in range(10) if x % 2 == 0]",
+      "bad_code": "squares = []\nfor x in range(10):\n    if x % 2 == 0:\n        squares.append(x**2)",
+      "explanation": "List comprehension быстрее и читаемее. Используйте его для простых преобразований списков.",
+      "level": "junior"
+    },
+    {
+      "id": "code3",
+      "language": "Python",
+      "category": "ООП",
+      "title": "Свойства вместо публичных атрибутов",
+      "good_code": "class Person:\n    def __init__(self, name):\n        self._name = name\n    \n    @property\n    def name(self):\n        return self._name\n    \n    @name.setter\n    def name(self, value):\n        if not value:\n            raise ValueError('Имя не может быть пустым')\n        self._name = value",
+      "bad_code": "class Person:\n    def __init__(self, name):\n        self.name = name  # Публичный атрибут",
+      "explanation": "Используйте свойства (@property) для контроля доступа и валидации данных.",
+      "level": "middle"
+    },
+    {
+      "id": "code4",
+      "language": "SQL",
+      "category": "JOIN",
+      "title": "Правильное использование JOIN",
+      "good_code": "SELECT users.name, orders.amount\nFROM users\nINNER JOIN orders ON users.id = orders.user_id\nWHERE users.active = true\nORDER BY orders.created_at DESC",
+      "bad_code": "SELECT * FROM users, orders WHERE users.id = orders.user_id",  # устаревший синтаксис",
+      "explanation": "Используйте явные JOIN вместо устаревшего запятого-синтаксиса. Указывайте только нужные столбцы вместо SELECT *.",
+      "level": "junior"
+    },
+    {
+      "id": "code5",
+      "language": "Python",
+      "category": "Декораторы",
+      "title": "Создание простого декоратора",
+      "good_code": "import functools\nimport time\n\ndef timer(func):\n    @functools.wraps(func)\n    def wrapper(*args, **kwargs):\n        start = time.time()\n        result = func(*args, **kwargs)\n        end = time.time()\n        print(f'{func.__name__} выполнилась за {end-start:.2f} секунд')\n        return result\n    return wrapper\n\n@timer\ndef slow_function():\n    time.sleep(1)\n    return 'Готово'",
+      "bad_code": "def timer(func):\n    def wrapper():\n        # пропускаем аргументы\n        return func()\n    return wrapper",
+      "explanation": "Декоратор должен принимать *args, **kwargs и использовать @functools.wraps для сохранения метаданных функции.",
+      "level": "middle"
+    },
+    {
+      "id": "code6",
+      "language": "Python",
+      "category": "Генераторы",
+      "title": "Использование генератора для больших данных",
+      "good_code": "def read_large_file(file_path):\n    with open(file_path, 'r') as f:\n        for line in f:\n            yield line.strip()\n\n# Использование\nfor line in read_large_file('huge_file.txt'):\n    process(line)",
+      "bad_code": "def read_large_file(file_path):\n    with open(file_path, 'r') as f:\n        return f.readlines()  # загружает весь файл в память",
+      "explanation": "Используйте генераторы для обработки больших файлов без загрузки в память целиком.",
+      "level": "middle"
+    }
+  ]
+}

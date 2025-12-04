@@ -1,0 +1,39 @@
+{
+  "plans": [
+    {
+      "level": "junior",
+      "track": "backend",
+      "duration_weeks": 4,
+      "weeks": [
+        {
+          "week": 1,
+          "focus": "Основы Python и алгоритмы",
+          "topics": ["Синтаксис Python", "Структуры данных", "Базовые алгоритмы"],
+          "tasks": ["Решить 20 задач на CodeWars", "Прочитать 'Грокаем алгоритмы' главы 1-3"],
+          "resources": ["docs.python.org", "CodeWars Python track"]
+        },
+        {
+          "week": 2,
+          "focus": "Базы данных и ООП",
+          "topics": ["SQL запросы", "ООП принципы", "Python и БД"],
+          "tasks": ["Спроектировать простую БД", "Написать CRUD приложение"],
+          "resources": ["SQLZoo", "Real Python OOP tutorials"]
+        },
+        {
+          "week": 3,
+          "focus": "Веб разработка",
+          "topics": ["HTTP протокол", "REST API", "Фреймворки (Django/Flask)"],
+          "tasks": ["Создать REST API", "Написать тесты"],
+          "resources": ["MDN HTTP guide", "Django documentation"]
+        },
+        {
+          "week": 4,
+          "focus": "Подготовка к собеседованию",
+          "topics": ["Mock интервью", "Поведенческие вопросы", "Решение задач"],
+          "tasks": ["Пройти 3 mock интервью", "Решить 10 задач на LeetCode"],
+          "resources": ["LeetCode", "Pramp для mock интервью"]
+        }
+      ]
+    }
+  ]
+}
