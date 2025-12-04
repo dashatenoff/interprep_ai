@@ -10,12 +10,14 @@ from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
 from dotenv import load_dotenv
 
+
 # Добавляем путь для импорта модулей
 sys.path.append(str(Path(__file__).resolve().parent))
 
 # Импорты из нашего проекта
 from bot.handlers import register_handlers
-from bot.utils import setup_rag, setup_database, setup_agents
+from bot.utils import setup_rag, setup_database, setup_agents, get_bot_commands
+from bot.middleware.agents_middleware import AgentsMiddleware
 from bot.config import WELCOME_MESSAGE
 
 # =========================
@@ -45,20 +47,63 @@ bot = Bot(
 dp = Dispatcher()
 
 # =========================
-# Глобальные объекты (для доступа в хэндлерах)
+# Глобальные переменные
 # =========================
 agents = {}
 USE_RAG = False
 
 
 # =========================
-# Обработчик команд
+# Базовые обработчики команд
 # =========================
 @dp.message(Command("start", "help"))
 async def cmd_start(message: types.Message):
     """Начало работы с ботом"""
-    status = "✅ Активна" if USE_RAG else "❌ Не активна"
-    await message.answer(WELCOME_MESSAGE.format(status))
+    try:
+        status = "✅ Активна" if USE_RAG else "❌ Не активна"
+        welcome_text = WELCOME_MESSAGE.format(status)
+        await message.answer(welcome_text, parse_mode=ParseMode.HTML)
+    except Exception as e:
+        logger.error(f"Ошибка в команде start: {e}")
+        await message.answer(
+            "🤖 <b>InterPrep AI v1.0</b>\n\n"
+            "Интеллектуальный помощник для подготовки к IT-собеседованиям.\n\n"
+            "Используйте /help для списка команд.",
+            parse_mode=ParseMode.HTML
+        )
+
+@dp.message(Command("rag_status"))
+async def cmd_rag_status(message: types.Message, use_rag: bool = USE_RAG):
+    """Проверка статуса RAG"""
+    if use_rag:
+        try:
+            from rag.retriever import check_database_status
+            status = check_database_status()
+            await message.answer(
+                f"📊 <b>Статус RAG базы:</b>\n\n"
+                f"✅ <b>Статус:</b> {status.get('status', 'unknown')}\n"
+                f"📁 <b>Документов:</b> {status.get('documents_count', 0)}\n"
+                f"📚 <b>Коллекция:</b> {status.get('collection_name', 'unknown')}"
+            )
+        except Exception as e:
+            await message.answer(f"❌ Ошибка получения статуса RAG: {e}")
+    else:
+        await message.answer("⚠️ RAG модуль отключен")
+
+
+@dp.message(Command("status"))
+async def cmd_status(message: types.Message, agents: dict = agents):
+    """Статус бота"""
+    agents_status = "✅ Доступны" if agents else "❌ Не доступны"
+    rag_status = "✅ ВКЛ" if USE_RAG else "❌ ВЫКЛ"
+
+    await message.answer(
+        f"🤖 <b>Статус InterPrep AI:</b>\n\n"
+        f"🔄 <b>Бот:</b> Активен\n"
+        f"🧠 <b>Агенты:</b> {agents_status}\n"
+        f"📚 <b>RAG:</b> {rag_status}\n"
+        f"💾 <b>База данных:</b> ✅ Готова"
+    )
 
 
 # =========================
@@ -66,14 +111,16 @@ async def cmd_start(message: types.Message):
 # =========================
 async def main():
     """Главная функция запуска бота"""
-    logger.info("🚀 Запуск InterPrep AI...")
-
     global USE_RAG, agents
+
+    logger.info("🚀 Запуск InterPrep AI...")
 
     # 1. Настройка базы данных
     try:
-        setup_database()
-        logger.info("✅ База данных инициализирована")
+        if setup_database():
+            logger.info("✅ База данных готова")
+        else:
+            logger.error("❌ Ошибка инициализации БД")
     except Exception as e:
         logger.error(f"❌ Ошибка БД: {e}")
 
@@ -92,25 +139,54 @@ async def main():
     # 3. Настройка агентов
     try:
         agents = setup_agents(USE_RAG)
-        logger.info("✅ Агенты инициализированы")
+        if agents:
+            logger.info("✅ Агенты инициализированы")
+        else:
+            logger.warning("⚠️  Агенты не созданы, бот будет работать в ограниченном режиме")
     except Exception as e:
         logger.error(f"❌ Ошибка агентов: {e}")
-        raise
+        # Создаем пустые агенты для продолжения работы
+        agents = {}
 
-    # 4. Регистрация хэндлеров
-    register_handlers(dp, agents, USE_RAG)
-    logger.info("✅ Хэндлеры зарегистрированы")
+    # 4. Добавляем middleware для передачи агентов
+    try:
+        dp.update.outer_middleware(AgentsMiddleware(agents, USE_RAG))
+        logger.info("✅ Middleware добавлен")
+    except Exception as e:
+        logger.error(f"❌ Ошибка middleware: {e}")
+
+    # 5. Регистрация хэндлеров
+    try:
+        register_handlers(dp, agents, USE_RAG)
+        logger.info("✅ Хэндлеры зарегистрированы")
+    except Exception as e:
+        logger.error(f"❌ Ошибка регистрации хэндлеров: {e}")
+
+    # 6. Устанавливаем команды бота
+    try:
+        await bot.set_my_commands(get_bot_commands())
+        logger.info("✅ Команды бота установлены")
+    except Exception as e:
+        logger.error(f"❌ Ошибка установки команд: {e}")
 
     logger.info("✅ InterPrep AI готов к работе!")
+    print("\n🤖 Бот запущен! Нажмите Ctrl+C для остановки.\n")
 
-    # 5. Запуск поллинга
-    await dp.start_polling(bot)
+    # 7. Запуск поллинга
+    try:
+        await dp.start_polling(bot)
+    except Exception as e:
+        logger.error(f"❌ Ошибка поллинга: {e}")
+        raise
 
 
 async def on_shutdown():
     """Завершение работы бота"""
     logger.info("👋 Завершение работы InterPrep AI...")
-    await bot.close()
+    try:
+        await bot.close()
+    except Exception as e:
+        logger.error(f"❌ Ошибка при закрытии бота: {e}")
 
 
 # =========================
@@ -123,7 +199,7 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        logger.info("Выключение по запросу пользователя...")
+        logger.info("🛑 Выключение по запросу пользователя...")
         asyncio.run(on_shutdown())
     except Exception as e:
         logger.error(f"❌ Критическая ошибка: {e}")

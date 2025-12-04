@@ -1,6 +1,10 @@
 # bot/handlers/general.py
-from aiogram import Dispatcher, types
+from aiogram import Router, types
+from aiogram.filters import Command
+from aiogram.types import Message
+from aiogram.enums import ParseMode
 
+router = Router()
 
 
 async def handle_general_message(message: types.Message, agents: dict, use_rag: bool):
@@ -9,7 +13,7 @@ async def handle_general_message(message: types.Message, agents: dict, use_rag: 
     from db.repository import SessionRepository
 
     with SessionLocal() as db:
-        from .start import get_or_create_user
+        from bot.utils import get_or_create_user
         user, db = get_or_create_user(message, db)
 
         # Пропускаем команды
@@ -134,10 +138,9 @@ async def handle_general_message(message: types.Message, agents: dict, use_rag: 
                 "• /review - проверить код"
             )
 
-def register_general_handlers(dp: Dispatcher, agents: dict, use_rag: bool):
-    """Регистрация общего обработчика сообщений"""
-    # Обработка всех сообщений, которые не начинаются с /
-    dp.register_message_handler(
-        lambda m: handle_general_message(m, agents, use_rag),
-        lambda m: m.text and not m.text.startswith('/')
-    )
+
+# Регистрируем хендлер для всех текстовых сообщений (не команд)
+@router.message(lambda message: message.text and not message.text.startswith('/'))
+async def general_message_handler(message: Message, agents: dict, use_rag: bool):
+    """Обработчик общих сообщений"""
+    await handle_general_message(message, agents, use_rag)
