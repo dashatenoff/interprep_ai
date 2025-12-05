@@ -1,30 +1,41 @@
-from aiogram import Router
+# bot/handlers/planning.py
+from aiogram import Router, types
 from aiogram.filters import Command
-from aiogram.fsm import state
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import Message, ReplyKeyboardRemove
 from aiogram.utils.keyboard import ReplyKeyboardBuilder
+from aiogram.enums import ParseMode
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = Router()
 
 
-class PlanningStates(StatesGroup):
-    waiting_goal = State()
-    creating_plan = State()
+# Определяем состояния конкретно для плана
+class PlanStates(StatesGroup):
+    waiting_goal = State()  # Что изучать
+    waiting_level = State()  # Какой уровень
+    waiting_time = State()  # Сколько времени
+    confirm_details = State()  # Показать детали
+    save_plan = State()  # Сохранить план
 
 
 async def cmd_plan(message: Message, state: FSMContext):
-    """Создать план обучения"""
-    await state.set_state(PlanningStates.waiting_goal)
+    """Создать план обучения - УПРОЩЕННАЯ версия"""
+    await state.clear()  # Очищаем предыдущие состояния
+
+    await state.set_state(PlanStates.waiting_goal)
     await message.answer(
-        "🗓️ *Создание плана обучения*\n\n"
-        "Опишите, что вы хотите изучить или улучшить:\n\n"
-        "*Примеры:*\n"
-        "• Хочу освоить Python для backend\n"
-        "• Нужно улучшить алгоритмы для собеседований\n"
-        "• Хочу изучить микросервисную архитектуру",
-        parse_mode="Markdown"
+        "🗓️ <b>Создание плана обучения</b>\n\n"
+        "<i>Что конкретно хотите изучить?</i>\n\n"
+        "<b>Примеры:</b>\n"
+        "• Микросервисная архитектура с нуля\n"
+        "• Docker и Kubernetes для микросервисов\n"
+        "• Паттерны проектирования микросервисов",
+        parse_mode=ParseMode.HTML
     )
 
 
@@ -35,178 +46,419 @@ async def process_plan_goal(
         use_rag: bool,
         get_or_create_user
 ):
-    """Обработка цели для плана"""
-    from db.models import SessionLocal
-    from db.repository import SessionRepository, PlanRepository
+    """Обработка цели для плана - ИСПРАВЛЕННАЯ ВЕРСИЯ"""
+    user_goal = message.text.strip()
 
-    with SessionLocal() as db:
-        user, db = get_or_create_user(message, db)
+    # Сохраняем цель
+    await state.update_data(user_goal=user_goal)
 
-        # Создаем сессию
-        session = SessionRepository.create_session(
-            db=db,
-            telegram_id=message.from_user.id,
-            session_type='planning',
-            agent='planner',
-            topic='Learning Plan'
-        )
+    # Сразу переходим к следующему вопросу
+    await state.set_state(PlanStates.waiting_level)
 
-        # Сохраняем запрос
-        SessionRepository.add_message(
-            db=db,
-            session_id=session.id,
-            role='user',
-            content=message.text
-        )
+    # Создаем клавиатуру для выбора уровня
+    builder = ReplyKeyboardBuilder()
+    builder.button(text="🟢 Начинающий")
+    builder.button(text="🟡 Средний")
+    builder.button(text="🔴 Продвинутый")
+    keyboard = builder.as_markup(resize_keyboard=True)
 
-        # Создаем план
-        await message.answer("📝 Создаю персонализированный план...")
-
-        try:
-            # Получаем план от агента
-            plan_result = agents["planner"].make_plan(
-                user_text=message.text,
-                level=user.current_level,
-                track=user.current_track,
-                weeks=4
-            )
-
-            # Форматируем ответ
-            response = f"""
-✅ *План обучения создан!*
-
-📅 *Общая информация:*
-• Недель: {plan_result.total_weeks}
-• Всего часов: {plan_result.total_hours}
-• Фокус: {', '.join(plan_result.focus_areas[:2])}
-
-📝 *Краткое описание:*
-{plan_result.summary[:300]}...
-
-*Использована база знаний:* {'✅ Да' if plan_result.rag_context_used else '❌ Нет'}
-
-*Показать детали по неделям?* (да/нет)
-"""
-
-            await message.answer(response, parse_mode="Markdown")
-
-            # Сохраняем состояние с планом
-            await state.update_data(
-                plan_result=plan_result.dict(),
-                plan_session_id=session.id
-            )
-
-            # Переходим к следующему шагу
-            await state.set_state(PlanningStates.creating_plan)
-
-        except Exception as e:
-            print(f"Ошибка создания плана: {e}")
-            await message.answer("❌ Не удалось создать план. Попробуйте позже.")
-            await state.clear()
+    await message.answer(
+        f"🎯 <b>Отлично! Будем изучать: {user_goal}</b>\n\n"
+        "<b>Теперь выберите ваш текущий уровень:</b>",
+        parse_mode=ParseMode.HTML,
+        reply_markup=keyboard
+    )
 
 
-async def process_plan_details(
+async def process_plan_level(
         message: Message,
         state: FSMContext,
         agents: dict,
         use_rag: bool,
         get_or_create_user
 ):
-    """Показать детали плана"""
-    text = message.text.lower()
+    """Обработка уровня"""
+    level_text = message.text.strip()
 
-    if text in ['да', 'yes', 'покажи', 'детали']:
-        data = await state.get_data()
-        plan_result = data.get('plan_result')
+    # Определяем уровень по тексту
+    if "начин" in level_text.lower():
+        level = "Начинающий"
+    elif "сред" in level_text.lower():
+        level = "Средний"
+    elif "продви" in level_text.lower():
+        level = "Продвинутый"
+    else:
+        level = "Средний"
 
-        if plan_result and plan_result.get('plan'):
-            response = "📋 *Детали плана:*\n\n"
+    # Сохраняем уровень
+    await state.update_data(user_level=level)
 
-            for week in plan_result['plan']:
-                response += f"*Неделя {week['week']}: {week['title']}*\n"
-                response += f"📚 Темы: {', '.join(week['topics'][:3])}\n"
-                response += f"✅ Задачи: {week['tasks'][0] if week['tasks'] else 'Нет'}\n"
-                response += f"⏰ Часов: {week.get('estimated_hours', 10)}\n\n"
+    # Создаем клавиатуру для выбора времени
+    builder = ReplyKeyboardBuilder()
+    builder.button(text="⏳ 2-3 часа в неделю")
+    builder.button(text="⏰ 5-7 часов в неделю")
+    builder.button(text="⚡ 10+ часов в неделю")
+    keyboard = builder.as_markup(resize_keyboard=True)
 
-            # Обрезаем если слишком длинно
-            if len(response) > 4000:
-                response = response[:4000] + "...\n\n(план сокращен)"
+    await state.set_state(PlanStates.waiting_time)
 
-            await message.answer(response, parse_mode="Markdown")
+    await message.answer(
+        f"📊 <b>Уровень: {level}</b>\n\n"
+        "<b>Сколько времени готовы уделять в неделю?</b>",
+        parse_mode=ParseMode.HTML,
+        reply_markup=keyboard
+    )
 
-            # Предлагаем сохранить план
-            builder = ReplyKeyboardBuilder()
-            builder.button(text="✅ Сохранить план")
-            builder.button(text="❌ Не сохранять")
-            keyboard = builder.as_markup(resize_keyboard=True)
 
-            await message.answer("Сохранить этот план в вашем профиле?", reply_markup=keyboard)
+async def process_plan_time(
+        message: Message,
+        state: FSMContext,
+        agents: dict,
+        use_rag: bool,
+        get_or_create_user
+):
+    """Обработка времени и создание плана"""
+    time_text = message.text.strip()
 
+    # Сохраняем время
+    await state.update_data(user_time=time_text)
+
+    # Получаем все данные
+    data = await state.get_data()
+    user_goal = data.get('user_goal', 'Тема не указана')
+    user_level = data.get('user_level', 'Средний')
+
+    # Показываем, что начинаем создавать план
+    await message.answer(
+        f"🔄 <b>Создаю план обучения...</b>\n\n"
+        f"📚 <b>Тема:</b> {user_goal}\n"
+        f"📊 <b>Уровень:</b> {user_level}\n"
+        f"⏱️ <b>Время:</b> {time_text}\n\n"
+        f"<i>Генерирую персонализированный план...</i>",
+        parse_mode=ParseMode.HTML,
+        reply_markup=ReplyKeyboardRemove()
+    )
+
+    try:
+        # Получаем Planner агента
+        planner_agent = agents.get("planner")
+
+        if not planner_agent:
+            logger.error("PlannerAgent не найден в agents dict")
+            raise Exception("Агент планирования недоступен")
+
+        # Создаем контекст для плана
+        plan_context = {
+            'user_goal': user_goal,
+            'user_level': user_level,
+            'user_time': time_text,
+            'weeks': 6,  # По умолчанию 6 недель
+            'track': 'backend',  # Можно получать из данных пользователя
+            'experience': f"Уровень: {user_level}",
+            'goals': user_goal,
+            'available_time': time_text
+        }
+
+        # Пробуем создать план через агента
+        plan_result = None
+
+        # Проверяем разные методы вызова
+        if hasattr(planner_agent, 'make_plan'):
+            plan_result = planner_agent.make_plan(plan_context)
+        elif hasattr(planner_agent, 'create_plan'):
+            plan_result = planner_agent.create_plan(plan_context)
+        elif hasattr(planner_agent, 'process_query'):
+            query = f"Создай план обучения по теме: {user_goal}, уровень: {user_level}, время: {time_text}"
+            plan_result = await planner_agent.process_query(query, use_rag=use_rag)
         else:
-            await message.answer("❌ План не найден")
-            await state.clear()
+            logger.warning("PlannerAgent не имеет известных методов создания плана")
 
-    elif text in ['нет', 'no', 'пропустить']:
-        await message.answer("✅ Хорошо, план не будет сохранен.")
-        await state.clear()
-
-    elif text == '✅ сохранить план':
-        # Сохраняем план в БД
-        from db.models import SessionLocal
-        from db.repository import PlanRepository
-
-        data = await state.get_data()
-        plan_result = data.get('plan_result')
-        session_id = data.get('plan_session_id')
-
+        # Форматируем результат
         if plan_result:
+            # Если план в виде dict
+            if isinstance(plan_result, dict):
+                plan_data = plan_result
+            elif hasattr(plan_result, 'dict'):
+                plan_data = plan_result.dict()
+            else:
+                plan_data = {'summary': str(plan_result)}
+        else:
+            # Fallback план
+            plan_data = create_fallback_plan(user_goal, user_level, time_text)
+
+        # Сохраняем план в состоянии
+        await state.update_data(
+            plan_data=plan_data,
+            plan_goal=user_goal,
+            plan_level=user_level,
+            plan_time=time_text
+        )
+
+        # Форматируем ответ
+        response = format_plan_response(plan_data, user_goal, user_level, time_text)
+
+        # Создаем клавиатуру для действий
+        builder = ReplyKeyboardBuilder()
+        builder.button(text="✅ Да, показать детали")
+        builder.button(text="❌ Нет, создать заново")
+        keyboard = builder.as_markup(resize_keyboard=True)
+
+        await state.set_state(PlanStates.confirm_details)
+
+        await message.answer(
+            response,
+            parse_mode=ParseMode.HTML,
+            reply_markup=keyboard
+        )
+
+    except Exception as e:
+        logger.error(f"Ошибка создания плана: {e}", exc_info=True)
+
+        # Fallback план при ошибке
+        fallback_plan = create_fallback_plan(user_goal, "Средний", time_text)
+
+        await state.update_data(
+            plan_data=fallback_plan,
+            plan_goal=user_goal,
+            plan_level="Средний",
+            plan_time=time_text
+        )
+
+        response = format_plan_response(fallback_plan, user_goal, "Средний", time_text)
+
+        builder = ReplyKeyboardBuilder()
+        builder.button(text="✅ Да, показать детали")
+        builder.button(text="❌ Нет, создать заново")
+        keyboard = builder.as_markup(resize_keyboard=True)
+
+        await state.set_state(PlanStates.confirm_details)
+
+        await message.answer(
+            response,
+            parse_mode=ParseMode.HTML,
+            reply_markup=keyboard
+        )
+
+
+async def process_plan_confirmation(
+        message: Message,
+        state: FSMContext,
+        agents: dict,
+        use_rag: bool,
+        get_or_create_user
+):
+    """Обработка подтверждения плана"""
+    user_choice = message.text.lower()
+
+    if any(word in user_choice for word in ['да', 'yes', 'покажи', 'детал']):
+        # Показываем детали плана
+        data = await state.get_data()
+        plan_data = data.get('plan_data', {})
+
+        detailed_response = format_detailed_plan(plan_data)
+
+        # Обрезаем если слишком длинно
+        if len(detailed_response) > 4000:
+            detailed_response = detailed_response[:4000] + "...\n\n<i>(план сокращен для отображения)</i>"
+
+        # Создаем клавиатуру для сохранения
+        builder = ReplyKeyboardBuilder()
+        builder.button(text="💾 Сохранить план")
+        builder.button(text="🔄 Создать новый")
+        keyboard = builder.as_markup(resize_keyboard=True)
+
+        await state.set_state(PlanStates.save_plan)
+
+        await message.answer(
+            detailed_response,
+            parse_mode=ParseMode.HTML,
+            reply_markup=keyboard
+        )
+
+    elif any(word in user_choice for word in ['нет', 'no', 'заново', 'новый']):
+        # Начинаем заново
+        await state.clear()
+        await cmd_plan(message, state)
+
+    else:
+        await message.answer("Пожалуйста, выберите вариант из кнопок ниже")
+
+
+async def process_save_plan(
+        message: Message,
+        state: FSMContext,
+        agents: dict,
+        use_rag: bool,
+        get_or_create_user
+):
+    """Сохранение плана"""
+    user_choice = message.text
+
+    if "сохран" in user_choice.lower():
+        try:
+            from db.models import SessionLocal
+            from db.repository import PlanRepository
+
+            data = await state.get_data()
+            plan_data = data.get('plan_data', {})
+            user_goal = data.get('plan_goal', 'План обучения')
+
             with SessionLocal() as db:
                 user, db = get_or_create_user(message, db)
 
-                plan_data = {
-                    'title': f'План: {plan_result.get("focus_areas", ["Обучение"])[0]}',
-                    'description': plan_result.get('summary', 'План обучения'),
-                    'track': user.current_track,
-                    'level': user.current_level,
-                    'duration_weeks': plan_result.get('total_weeks', 4),
-                    'plan_data': plan_result,
+                # Сохраняем план
+                plan_to_save = {
+                    'title': f'План: {user_goal}',
+                    'description': plan_data.get('summary', f'План изучения {user_goal}'),
+                    'track': user.current_track or 'backend',
+                    'level': data.get('plan_level', 'Средний'),
+                    'duration_weeks': plan_data.get('total_weeks', 6),
+                    'plan_data': plan_data,
                     'progress': 0.0
                 }
 
-                PlanRepository.save_learning_plan(db, message.from_user.id, plan_data)
+                PlanRepository.save_learning_plan(db, message.from_user.id, plan_to_save)
 
                 await message.answer(
-                    "✅ *План сохранен!*\n\n"
-                    "Вы можете посмотреть его в любой момент через /progress",
-                    parse_mode="Markdown",
+                    "✅ <b>План успешно сохранен!</b>\n\n"
+                    "Вы можете посмотреть его в любой момент через команду /progress",
+                    parse_mode=ParseMode.HTML,
                     reply_markup=ReplyKeyboardRemove()
                 )
-        else:
-            await message.answer("❌ Нечего сохранять")
 
+        except Exception as e:
+            logger.error(f"Ошибка сохранения плана: {e}")
+            await message.answer(
+                f"❌ <b>Не удалось сохранить план:</b> {str(e)}",
+                parse_mode=ParseMode.HTML
+            )
+
+    elif "новый" in user_choice.lower():
         await state.clear()
+        await cmd_plan(message, state)
+        return
 
-    elif text == '❌ не сохранять':
-        await message.answer("✅ План не сохранен.", reply_markup=ReplyKeyboardRemove())
-        await state.clear()
+    await state.clear()
 
-    else:
-        await message.answer("Пожалуйста, ответьте 'да' или 'нет'")
 
+# ===================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =====================
+
+def create_fallback_plan(goal: str, level: str, time: str) -> dict:
+    """Создание fallback плана при ошибке"""
+    return {
+        'total_weeks': 6,
+        'focus_areas': [goal, 'Практические навыки', 'Теория'],
+        'summary': f'6-недельный план изучения {goal} для уровня {level}',
+        'plan': [
+            {'week': 1, 'title': 'Основные концепции', 'topics': ['Введение', 'Базовые понятия'],
+             'tasks': ['Изучить теорию'], 'estimated_hours': 5},
+            {'week': 2, 'title': 'Углубленное изучение', 'topics': ['Детали', 'Примеры'],
+             'tasks': ['Практическое задание'], 'estimated_hours': 7},
+            {'week': 3, 'title': 'Практика', 'topics': ['Реальные кейсы'], 'tasks': ['Создать проект'],
+             'estimated_hours': 10},
+            {'week': 4, 'title': 'Продвинутые темы', 'topics': ['Оптимизация', 'Best practices'],
+             'tasks': ['Улучшить проект'], 'estimated_hours': 8},
+            {'week': 5, 'title': 'Интеграция', 'topics': ['Связь с другими технологиями'],
+             'tasks': ['Интеграционное задание'], 'estimated_hours': 9},
+            {'week': 6, 'title': 'Финальный проект', 'topics': ['Завершение'], 'tasks': ['Завершить проект'],
+             'estimated_hours': 12}
+        ],
+        'resources': ['Официальная документация', 'Книги по теме', 'Онлайн-курсы']
+    }
+
+
+def format_plan_response(plan_data: dict, goal: str, level: str, time: str) -> str:
+    """Форматирование ответа с планом"""
+    weeks = plan_data.get('total_weeks', 6)
+    focus_areas = ', '.join(plan_data.get('focus_areas', ['Основные концепции'])[:3])
+
+    return f"""
+✅ <b>План обучения создан!</b>
+
+🎯 <b>Тема:</b> {goal}
+📊 <b>Уровень:</b> {level}
+⏱️ <b>Время:</b> {time}
+📅 <b>Длительность:</b> {weeks} недель
+
+📋 <b>Основные направления:</b>
+{focus_areas}
+
+📝 <b>Краткое описание:</b>
+{plan_data.get('summary', 'Персонализированный план обучения')[:200]}...
+
+<b>Показать детальный план по неделям?</b>
+"""
+
+
+def format_detailed_plan(plan_data: dict) -> str:
+    """Форматирование детального плана"""
+    response = "📋 <b>Детальный план обучения:</b>\n\n"
+
+    plan_items = plan_data.get('plan', [])
+
+    if not plan_items:
+        response += "⚠️ Детали плана не указаны\n"
+        return response
+
+    for item in plan_items:
+        week_num = item.get('week', 1)
+        title = item.get('title', f'Неделя {week_num}')
+        topics = ', '.join(item.get('topics', ['Темы не указаны'])[:3])
+        tasks = item.get('tasks', ['Задачи не указаны'])
+        hours = item.get('estimated_hours', 'N/A')
+
+        response += f"<b>Неделя {week_num}: {title}</b>\n"
+        response += f"📚 <i>Темы:</i> {topics}\n"
+
+        if tasks and len(tasks) > 0:
+            response += f"✅ <i>Задача:</i> {tasks[0]}\n"
+
+        response += f"⏰ <i>Часов:</i> {hours}\n\n"
+
+    # Добавляем ресурсы если есть
+    resources = plan_data.get('resources', [])
+    if resources:
+        response += "📚 <b>Рекомендуемые ресурсы:</b>\n"
+        for i, resource in enumerate(resources[:5], 1):
+            response += f"{i}. {resource}\n"
+
+    return response
+
+
+# ===================== РЕГИСТРАЦИЯ ХЭНДЛЕРОВ =====================
 
 def register_planning_handlers(dp: Router, agents: dict, use_rag: bool, get_or_create_user):
-    """Регистрация хэндлеров планирования"""
+    """Регистрация хэндлеров планирования - ИСПРАВЛЕННАЯ"""
+
     # Команда /plan
     dp.message.register(cmd_plan, Command("plan"))
 
-    # Обработка цели плана
+    # Обработка цели (что изучать)
     dp.message.register(
-        lambda m: process_plan_goal(m, state, agents, use_rag, get_or_create_user),
-        PlanningStates.waiting_goal
+        lambda m: process_plan_goal(m, m.bot.state, agents, use_rag, get_or_create_user),
+        PlanStates.waiting_goal
     )
 
-    # Обработка деталей плана
+    # Обработка уровня
     dp.message.register(
-        lambda m: process_plan_details(m, state, agents, use_rag, get_or_create_user),
-        PlanningStates.creating_plan
+        lambda m: process_plan_level(m, m.bot.state, agents, use_rag, get_or_create_user),
+        PlanStates.waiting_level
+    )
+
+    # Обработка времени и создание плана
+    dp.message.register(
+        lambda m: process_plan_time(m, m.bot.state, agents, use_rag, get_or_create_user),
+        PlanStates.waiting_time
+    )
+
+    # Подтверждение и показ деталей
+    dp.message.register(
+        lambda m: process_plan_confirmation(m, m.bot.state, agents, use_rag, get_or_create_user),
+        PlanStates.confirm_details
+    )
+
+    # Сохранение плана
+    dp.message.register(
+        lambda m: process_save_plan(m, m.bot.state, agents, use_rag, get_or_create_user),
+        PlanStates.save_plan
     )

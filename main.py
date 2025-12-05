@@ -10,25 +10,6 @@ from aiogram.enums import ParseMode
 from aiogram.client.default import DefaultBotProperties
 from dotenv import load_dotenv
 
-import os
-from pathlib import Path
-
-# Создаем папки при запуске (важно для Railway)
-Path("data").mkdir(exist_ok=True)
-Path("knowledge").mkdir(exist_ok=True)
-Path("chroma_db").mkdir(exist_ok=True)
-
-print(f"📁 Current directory: {os.getcwd()}")
-print(f"📁 Contents: {os.listdir('.')}")
-# Добавляем путь для импорта модулей
-sys.path.append(str(Path(__file__).resolve().parent))
-
-# Импорты из нашего проекта
-from bot.handlers import register_handlers
-from bot.utils import setup_rag, setup_database, setup_agents, get_bot_commands
-from bot.middleware.agents_middleware import AgentsMiddleware
-from bot.config import WELCOME_MESSAGE
-
 # =========================
 # Настройка логирования
 # =========================
@@ -47,6 +28,36 @@ if not TOKEN:
     raise RuntimeError("❌ TELEGRAM_BOT_TOKEN не найден в .env")
 
 # =========================
+# Глобальные переменные
+# =========================
+USE_RAG = False  # Определяем ДО использования
+agents = {}
+
+# Создаем папки при запуске (важно для Railway)
+Path("data").mkdir(exist_ok=True)
+Path("knowledge").mkdir(exist_ok=True)
+Path("chroma_db").mkdir(exist_ok=True)
+
+print(f"📁 Current directory: {os.getcwd()}")
+print(f"📁 Contents: {os.listdir('.')}")
+# Добавляем путь для импорта модулей
+sys.path.append(str(Path(__file__).resolve().parent))
+
+# Импорты из нашего проекта
+# ПЕРВОЕ переместим импорты, которые зависят от переменных выше
+from bot.handlers import register_handlers
+from bot.utils import setup_rag, setup_database, setup_agents, get_bot_commands
+from bot.middleware.agents_middleware import AgentsMiddleware
+from bot.config import WELCOME_MESSAGE
+
+# Теперь импортируем агентов (после определения USE_RAG)
+from agents.assessor_agent import AssessorAgent
+from agents.coordinator import CoordinatorAgent
+from agents.interviewer_agent import InterviewerAgent
+from agents.planner_agent import PlannerAgent
+from agents.reviewer import ReviewerAgent
+
+# =========================
 # Инициализация бота (aiogram 3.x)
 # =========================
 bot = Bot(
@@ -55,12 +66,14 @@ bot = Bot(
 )
 dp = Dispatcher()
 
-# =========================
-# Глобальные переменные
-# =========================
-agents = {}
-USE_RAG = False
-
+# Создаем словарь агентов - но он будет заполнен позже в main()
+agents_dict = {
+    "coordinator": None,  # Будет заполнено позже
+    "assessor": None,
+    "interviewer": None,
+    "planner": None,
+    "reviewer": None
+}
 
 # =========================
 # Базовые обработчики команд
@@ -82,9 +95,10 @@ async def cmd_start(message: types.Message):
         )
 
 @dp.message(Command("rag_status"))
-async def cmd_rag_status(message: types.Message, use_rag: bool = USE_RAG):
+async def cmd_rag_status(message: types.Message):
     """Проверка статуса RAG"""
-    if use_rag:
+    global USE_RAG
+    if USE_RAG:
         try:
             from rag.retriever import check_database_status
             status = check_database_status()
@@ -101,8 +115,9 @@ async def cmd_rag_status(message: types.Message, use_rag: bool = USE_RAG):
 
 
 @dp.message(Command("status"))
-async def cmd_status(message: types.Message, agents: dict = agents):
+async def cmd_status(message: types.Message):
     """Статус бота"""
+    global agents, USE_RAG
     agents_status = "✅ Доступны" if agents else "❌ Не доступны"
     rag_status = "✅ ВКЛ" if USE_RAG else "❌ ВЫКЛ"
 
@@ -120,7 +135,7 @@ async def cmd_status(message: types.Message, agents: dict = agents):
 # =========================
 async def main():
     """Главная функция запуска бота"""
-    global USE_RAG, agents
+    global USE_RAG, agents, agents_dict
 
     logger.info("🚀 Запуск InterPrep AI...")
 
@@ -145,28 +160,38 @@ async def main():
         logger.error(f"❌ Ошибка RAG: {e}")
         USE_RAG = False
 
-    # 3. Настройка агентов
+    # 3. Инициализация агентов (теперь здесь, после настройки USE_RAG)
     try:
-        agents = setup_agents(USE_RAG)
-        if agents:
-            logger.info("✅ Агенты инициализированы")
-        else:
-            logger.warning("⚠️  Агенты не созданы, бот будет работать в ограниченном режиме")
+        coordinator = CoordinatorAgent(use_rag=USE_RAG)
+        agents_dict = {
+            "coordinator": coordinator,
+            "assessor": AssessorAgent(use_rag=USE_RAG),
+            "interviewer": InterviewerAgent(use_rag=USE_RAG),
+            "planner": PlannerAgent(use_rag=USE_RAG),
+            "reviewer": ReviewerAgent(use_rag=USE_RAG)
+        }
+        agents = agents_dict  # для совместимости со старой переменной
+        logger.info("✅ Агенты инициализированы")
     except Exception as e:
-        logger.error(f"❌ Ошибка агентов: {e}")
+        logger.error(f"❌ Ошибка инициализации агентов: {e}")
         # Создаем пустые агенты для продолжения работы
         agents = {}
+        agents_dict = {}
 
     # 4. Добавляем middleware для передачи агентов
     try:
-        dp.update.outer_middleware(AgentsMiddleware(agents, USE_RAG))
+        dp.update.outer_middleware(AgentsMiddleware(
+            coordinator=coordinator if 'coordinator' in locals() else None,
+            agents=agents_dict,
+            use_rag=USE_RAG
+        ))
         logger.info("✅ Middleware добавлен")
     except Exception as e:
         logger.error(f"❌ Ошибка middleware: {e}")
 
     # 5. Регистрация хэндлеров
     try:
-        register_handlers(dp, agents, USE_RAG)
+        register_handlers(dp, agents_dict, USE_RAG)
         logger.info("✅ Хэндлеры зарегистрированы")
     except Exception as e:
         logger.error(f"❌ Ошибка регистрации хэндлеров: {e}")
