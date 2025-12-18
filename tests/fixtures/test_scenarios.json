@@ -1,30 +1,344 @@
-// tests/fixtures/test_scenarios.json
 [
   {
-    "id": "python_oop_basic",
-    "topic": "Python ООП",
-    "user_query": "Задай вопрос по ООП в Python",
-    "expected_agents": ["interviewer", "assessor"],
-    "required_keywords": ["ООП", "Python", "принцип"],
-    "sample_question": "Что такое инкапсуляция?",
-    "difficulty": "beginner"
+    "id": "scenario_1",
+    "name": "Полный цикл: Junior Backend Developer",
+    "description": "Пользователь junior уровня проходит полный цикл подготовки к собеседованию на backend-разработчика",
+    "steps": [
+      {
+        "step": 1,
+        "user_input": "/begin junior backend",
+        "expected_agent": "start_handler",
+        "expected_response": "Установлено: junior backend",
+        "validation": "Состояние: waiting_for_level, данные: level=junior, track=backend"
+      },
+      {
+        "step": 2,
+        "user_input": "Изучал Python 6 месяцев, знаю основы ООП, решал задачи на LeetCode Easy",
+        "expected_agent": "assessor",
+        "expected_response": ["Оценка", "junior", "рекомендации"],
+        "validation": "AssessorAgent вызван, создана оценка, сохранена в БД"
+      },
+      {
+        "step": 3,
+        "user_input": "Хочу план обучения на 4 недели",
+        "expected_agent": "coordinator → planner",
+        "expected_response": ["план", "недели", "темы"],
+        "validation": "Coordinator определил intent=planning, PlannerAgent сгенерировал план"
+      },
+      {
+        "step": 4,
+        "user_input": "/interview",
+        "expected_agent": "interviewer",
+        "expected_response": ["вопрос", "Python", "собеседование"],
+        "validation": "InterviewerAgent создал сессию, сгенерировал 3 вопроса"
+      },
+      {
+        "step": 5,
+        "user_input": "Декоратор - это функция, которая принимает функцию и возвращает функцию",
+        "expected_agent": "assessor",
+        "expected_response": ["оценка", "баллы", "фидбек"],
+        "validation": "Ответ оценен, баллы сохранены, сессия обновлена"
+      }
+    ]
   },
   {
-    "id": "algorithms_sorting",
-    "topic": "Алгоритмы",
-    "user_query": "Спроси про алгоритмы сортировки",
-    "expected_agents": ["interviewer", "assessor"],
-    "required_keywords": ["сортировка", "алгоритм", "сложность"],
-    "sample_question": "В чем разница между быстрой и пузырьковой сортировкой?",
-    "difficulty": "intermediate"
+    "id": "scenario_2",
+    "name": "Быстрая оценка навыков Middle Python",
+    "description": "Middle-разработчик запрашивает быструю оценку через команду /assess",
+    "steps": [
+      {
+        "step": 1,
+        "user_input": "/assess",
+        "expected_agent": "assessment_handler",
+        "expected_response": "Опишите свои навыки",
+        "validation": "Состояние: waiting_skills"
+      },
+      {
+        "step": 2,
+        "user_input": "3 года коммерческого опыта на Python, знаю Django, FastAPI, PostgreSQL, Docker, писал микросервисы",
+        "expected_agent": "assessor",
+        "expected_response": ["middle", "уверенность", "рекомендации"],
+        "validation": "AssessorAgent использовал RAG контекст, вернул structured оценку"
+      }
+    ]
   },
   {
-    "id": "databases_indexes",
-    "topic": "Базы данных",
-    "user_query": "Хочу вопросы по индексам в БД",
-    "expected_agents": ["interviewer", "assessor"],
-    "required_keywords": ["индекс", "база", "данных", "оптимизация"],
-    "sample_question": "Что такое covering index?",
-    "difficulty": "advanced"
+    "id": "scenario_3",
+    "name": "Code Review с автоматическим определением языка",
+    "description": "Пользователь отправляет код без указания языка, Reviewer определяет его автоматически",
+    "steps": [
+      {
+        "step": 1,
+        "user_input": "/review",
+        "expected_agent": "review_handler",
+        "expected_response": "Отправьте код для анализа",
+        "validation": "Состояние: waiting_code"
+      },
+      {
+        "step": 2,
+        "user_input": "```python\ndef factorial(n):\n    if n == 0:\n        return 1\n    return n * factorial(n-1)\n```",
+        "expected_agent": "reviewer",
+        "expected_response": ["code review", "рекурсия", "рекомендация"],
+        "validation": "ReviewerAgent извлек код, определил Python, провел анализ"
+      }
+    ]
+  },
+  {
+    "id": "scenario_4",
+    "name": "Планирование с учетом времени",
+    "description": "Пользователь создает детальный план с указанием доступного времени",
+    "steps": [
+      {
+        "step": 1,
+        "user_input": "/plan",
+        "expected_agent": "planning_handler",
+        "expected_response": "Что хотите изучить?",
+        "validation": "Состояние: waiting_goal"
+      },
+      {
+        "step": 2,
+        "user_input": "Docker и Kubernetes с нуля",
+        "expected_agent": "planner",
+        "expected_response": ["ваш уровень", "Начинающий", "Средний", "Продвинутый"],
+        "validation": "Сохранена цель, состояние: waiting_level"
+      },
+      {
+        "step": 3,
+        "user_input": "Начинающий",
+        "expected_agent": "planner",
+        "expected_response": "Сколько времени готовы уделять",
+        "validation": "Сохранен уровень, состояние: waiting_time"
+      },
+      {
+        "step": 4,
+        "user_input": "10+ часов в неделю",
+        "expected_agent": "planner",
+        "expected_response": ["план", "недели", "часы", "ресурсы"],
+        "validation": "PlannerAgent сгенерировал план с учетом времени"
+      }
+    ]
+  },
+  {
+    "id": "scenario_5",
+    "name": "Координатор определяет intent по тексту",
+    "description": "Пользователь пишет свободный текст, координатор определяет нужного агента",
+    "steps": [
+      {
+        "step": 1,
+        "user_input": "У меня есть опыт: Python 2 года, Django, REST API, знаю SQL",
+        "expected_agent": "coordinator → assessor",
+        "expected_response": ["оценка", "навыки", "рекомендации"],
+        "validation": "Coordinator распознал description of skills, confidence > 0.8"
+      },
+      {
+        "step": 2,
+        "user_input": "Хочу готовиться к вопросам по системному дизайну",
+        "expected_agent": "coordinator → interviewer",
+        "expected_response": ["вопросы", "системный дизайн", "интервью"],
+        "validation": "Распознан intent=interview"
+      }
+    ]
+  },
+  {
+    "id": "scenario_6",
+    "name": "Собеседование с подсказками",
+    "description": "Пользователь проходит интервью и запрашивает подсказки",
+    "steps": [
+      {
+        "step": 1,
+        "user_input": "/interview",
+        "expected_agent": "interviewer",
+        "expected_response": ["вопрос", "алгоритмы"],
+        "validation": "Создана сессия интервью"
+      },
+      {
+        "step": 2,
+        "user_input": "Что такое паттерн Наблюдатель?",
+        "expected_agent": "interviewer",
+        "expected_response": ["Observer", "подписка", "уведомления"],
+        "validation": "Сгенерированы подсказки для вопроса"
+      }
+    ]
+  },
+  {
+    "id": "scenario_7",
+    "name": "Оценка с использованием RAG контекста",
+    "description": "Assessor использует базу знаний (RAG) для более точной оценки",
+    "steps": [
+      {
+        "step": 1,
+        "user_input": "Как работает garbage collection в Python?",
+        "expected_agent": "assessor",
+        "expected_response": ["reference counting", "generations", "оценка"],
+        "validation": "RAG_AVAILABLE=True, retrieve_context вызван, context_used=True"
+      }
+    ]
+  },
+  {
+    "id": "scenario_8",
+    "name": "Проверка JavaScript кода",
+    "description": "Reviewer анализирует JavaScript код",
+    "steps": [
+      {
+        "step": 1,
+        "user_input": "```javascript\nconst user = {\n  name: 'John',\n  age: 30\n};\n```",
+        "expected_agent": "reviewer",
+        "expected_response": ["JavaScript", "объект", "const"],
+        "validation": "Язык определен как JavaScript, проведен анализ"
+      }
+    ]
+  },
+  {
+    "id": "scenario_9",
+    "name": "Смена уровня в процессе",
+    "description": "Пользователь начинает как junior, затем переходит на middle",
+    "steps": [
+      {
+        "step": 1,
+        "user_input": "/begin junior python",
+        "expected_agent": "start_handler",
+        "validation": "Установлен уровень junior"
+      },
+      {
+        "step": 2,
+        "user_input": "Я передумал, я middle",
+        "expected_agent": "general_handler",
+        "validation": "Состояние обновлено, уровень изменен на middle"
+      }
+    ]
+  },
+  {
+    "id": "scenario_10",
+    "name": "Обработка некорректного ввода",
+    "description": "Пользователь отправляет некорректные данные",
+    "steps": [
+      {
+        "step": 1,
+        "user_input": "/begin invalid invalid",
+        "expected_agent": "start_handler",
+        "expected_response": "не поддерживается",
+        "validation": "Валидация сработала, ошибка показана"
+      },
+      {
+        "step": 2,
+        "user_input": "",
+        "expected_agent": "general_handler",
+        "expected_response": "Не понял запрос",
+        "validation": "Обработана пустая строка"
+      }
+    ]
+  },
+  {
+    "id": "scenario_11",
+    "name": "Интеграция между агентами",
+    "description": "Оценка → План на основе слабых мест",
+    "steps": [
+      {
+        "step": 1,
+        "user_input": "Слаб в алгоритмах, но знаю Python хорошо",
+        "expected_agent": "assessor",
+        "expected_response": ["слабые темы", "алгоритмы"],
+        "validation": "Определены weak_topics"
+      },
+      {
+        "step": 2,
+        "user_input": "Создай план чтобы подтянуть алгоритмы",
+        "expected_agent": "planner",
+        "expected_response": ["алгоритмы", "LeetCode", "практика"],
+        "validation": "План учитывает weak_topics из предыдущей оценки"
+      }
+    ]
+  },
+  {
+    "id": "scenario_12",
+    "name": "Длительное интервью с несколькими вопросами",
+    "description": "Прохождение всех вопросов в сессии интервью",
+    "steps": [
+      {
+        "step": 1,
+        "user_input": "/interview",
+        "expected_agent": "interviewer",
+        "validation": "Создано 3 вопроса"
+      },
+      {
+        "step": 2,
+        "user_input": "[Ответ на вопрос 1]",
+        "expected_agent": "assessor",
+        "validation": "Вопрос 1 оценен, current_question_index=1"
+      },
+      {
+        "step": 3,
+        "user_input": "[Ответ на вопрос 2]",
+        "expected_agent": "assessor",
+        "validation": "Вопрос 2 оценен, current_question_index=2"
+      },
+      {
+        "step": 4,
+        "user_input": "[Ответ на вопрос 3]",
+        "expected_agent": "interviewer",
+        "expected_response": ["итоги", "средний балл", "рекомендации"],
+        "validation": "Интервью завершено, сгенерирована статистика"
+      }
+    ]
+  },
+  {
+    "id": "scenario_13",
+    "name": "Анализ сложного кода",
+    "description": "Reviewer анализирует код с несколькими проблемами",
+    "steps": [
+      {
+        "step": 1,
+        "user_input": "```python\ndef process_data(data):\n    result = []\n    for i in range(len(data)):\n        if data[i] > 10:\n            result.append(data[i] * 2)\n    return result\n```",
+        "expected_agent": "reviewer",
+        "expected_response": ["issues", "производительность", "читаемость"],
+        "validation": "Найдены проблемы: O(n^2), naming conventions"
+      }
+    ]
+  },
+  {
+    "id": "scenario_14",
+    "name": "Персонализированный план с RAG",
+    "description": "Planner использует базу знаний для подбора ресурсов",
+    "steps": [
+      {
+        "step": 1,
+        "user_input": "Хочу изучить FastAPI для микросервисов",
+        "expected_agent": "planner",
+        "expected_response": ["ресурсы", "официальная документация", "курсы"],
+        "validation": "RAG использован для поиска актуальных ресурсов по FastAPI"
+      }
+    ]
+  },
+  {
+    "id": "scenario_15",
+    "name": "Состояния пользователя и восстановление",
+    "description": "Пользователь прерывает процесс и возвращается",
+    "steps": [
+      {
+        "step": 1,
+        "user_input": "/plan",
+        "expected_agent": "planning_handler",
+        "validation": "Состояние: waiting_goal"
+      },
+      {
+        "step": 2,
+        "user_input": "Хочу изучать React",
+        "expected_agent": "planner",
+        "validation": "Состояние: waiting_level, цель сохранена"
+      },
+      {
+        "step": 3,
+        "user_input": "/start",
+        "expected_agent": "start_handler",
+        "validation": "Состояние planning очищено"
+      },
+      {
+        "step": 4,
+        "user_input": "/plan",
+        "expected_agent": "planning_handler",
+        "expected_response": "Что хотите изучить",
+        "validation": "Новая сессия, предыдущие данные не используются"
+      }
+    ]
   }
 ]

@@ -1,0 +1,37 @@
+[
+  {
+    "id": "perf_1",
+    "query": "Привет",
+    "type": "simple",
+    "expected_agent": "coordinator",
+    "max_response_time": 1.0
+  },
+  {
+    "id": "perf_2",
+    "query": "Расскажи о принципах SOLID",
+    "type": "technical",
+    "expected_agent": "interviewer",
+    "max_response_time": 2.5
+  },
+  {
+    "id": "perf_3",
+    "query": "Спроектируй схему БД для интернет-магазина",
+    "type": "complex",
+    "expected_agent": "planner",
+    "max_response_time": 3.0
+  },
+  {
+    "id": "perf_4",
+    "query": "Объясни разницу между async и await в Python",
+    "type": "technical",
+    "expected_agent": "interviewer",
+    "max_response_time": 2.0
+  },
+  {
+    "id": "perf_5",
+    "query": "Создай план изучения Python на 2 недели",
+    "type": "planning",
+    "expected_agent": "planner",
+    "max_response_time": 2.5
+  }
+]

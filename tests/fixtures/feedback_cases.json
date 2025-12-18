@@ -1,0 +1,42 @@
+[
+  {
+    "id": "feedback_1",
+    "question": "Что такое инкапсуляция в ООП?",
+    "user_answer": "Это когда данные и методы объединены в классе",
+    "expected_keywords": ["скрытие", "реализация", "доступ", "private"],
+    "difficulty": "easy",
+    "topic": "Python"
+  },
+  {
+    "id": "feedback_2",
+    "question": "Объясните принцип ACID в базах данных",
+    "user_answer": "ACID это Atomicity, Consistency, Isolation, Durability",
+    "expected_keywords": ["атомарность", "согласованность", "изоляция", "долговечность"],
+    "difficulty": "medium",
+    "topic": "Databases"
+  },
+  {
+    "id": "feedback_3",
+    "question": "Чем отличается list от tuple в Python?",
+    "user_answer": "List можно изменять, а tuple нет",
+    "expected_keywords": ["изменяемый", "неизменяемый", "производительность", "использование"],
+    "difficulty": "easy",
+    "topic": "Python"
+  },
+  {
+    "id": "feedback_4",
+    "question": "Что такое Big O notation?",
+    "user_answer": "Это способ описать сложность алгоритма",
+    "expected_keywords": ["сложность", "время", "память", "O(n)", "O(log n)"],
+    "difficulty": "medium",
+    "topic": "Algorithms"
+  },
+  {
+    "id": "feedback_5",
+    "question": "Объясните разницу между INNER JOIN и LEFT JOIN",
+    "user_answer": "INNER JOIN возвращает только совпадающие строки, LEFT JOIN все строки из левой таблицы",
+    "expected_keywords": ["совпадение", "все строки", "NULL", "использование"],
+    "difficulty": "medium",
+    "topic": "Databases"
+  }
+]

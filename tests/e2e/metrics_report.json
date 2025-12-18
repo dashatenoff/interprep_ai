@@ -1,0 +1,59 @@
+{
+  "timestamp": "2024-01-15T12:00:00",
+  "test_type": "E2E Accuracy Test",
+  "results": {
+    "overall_accuracy": 100.0,
+    "by_agent": {
+      "coordinator": {
+        "accuracy": 100.0,
+        "relevant": 1,
+        "total": 1
+      },
+      "assessor": {
+        "accuracy": 100.0,
+        "relevant": 1,
+        "total": 1
+      }
+    },
+    "total_steps": 2,
+    "total_responses": 2,
+    "counters": {
+      "coordinator": {
+        "total": 1,
+        "relevant": 1,
+        "details": [
+          {
+            "query": "/begin junior python",
+            "status": "success"
+          }
+        ]
+      },
+      "assessor": {
+        "total": 1,
+        "relevant": 1,
+        "details": [
+          {
+            "query": "Знаю Python основы",
+            "status": "success"
+          }
+        ]
+      },
+      "planner": {
+        "total": 0,
+        "relevant": 0,
+        "details": []
+      },
+      "interviewer": {
+        "total": 0,
+        "relevant": 0,
+        "details": []
+      },
+      "reviewer": {
+        "total": 0,
+        "relevant": 0,
+        "details": []
+      }
+    }
+  },
+  "summary": "ОБЩАЯ ТОЧНОСТЬ: 100.0%\nШАГОВ ВЫПОЛНЕНО: 2\nЛУЧШИЙ АГЕНТ: coordinator (100.0%)\n✅ Система работает отлично"
+}
